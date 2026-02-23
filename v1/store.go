@@ -13,7 +13,6 @@ var (
 type Store interface {
 	// Schema
 	CreateSchema(ctx context.Context) error
-	DropSchema(ctx context.Context) error
 
 	// Sessions
 	CreateSession(ctx context.Context, rules Rules) (*Session, error)
@@ -22,4 +21,8 @@ type Store interface {
 	// Messages
 	AddMessage(ctx context.Context, sessionID string, role string, content string, usage *Usage) (*Message, error)
 	ListMessages(ctx context.Context, sessionID string) ([]Message, error)
+
+	// Request Logs
+	AddRequestLog(ctx context.Context, log RequestLog) (*RequestLog, error)
+	UpdateRequestLog(ctx context.Context, id string, response string, status string, failReason string, errorMsg string, retryCount int, usage *Usage) error
 }

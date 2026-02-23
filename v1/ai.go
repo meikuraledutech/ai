@@ -54,6 +54,40 @@ type MigrationRecord struct {
 	Checksum  string
 }
 
+// RequestLog tracks every AI request attempt for cost and debugging.
+type RequestLog struct {
+	ID            string    `json:"id"`
+	SessionID     string    `json:"session_id"`
+	Prompt        string    `json:"prompt"`
+	Response      string    `json:"response"`
+	AttemptNumber int       `json:"attempt_number"`
+	RetryCount    int       `json:"retry_count"`
+	FinalStatus   string    `json:"final_status"`
+	FailReason    string    `json:"fail_reason"`
+	ErrorMessage  string    `json:"error_message"`
+	Usage         Usage     `json:"usage"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// Status constants
+const (
+	StatusSuccess = "success"
+	StatusFailed  = "failed"
+	StatusPending = "pending"
+)
+
+// FailReason constants
+const (
+	FailReasonIncompleteJSON = "incomplete_json"
+	FailReasonInvalidJSON    = "invalid_json"
+	FailReasonNetworkError   = "network_error"
+	FailReasonTimeout        = "timeout"
+	FailReasonAPIError       = "api_error"
+	FailReasonMaxRetries     = "max_retries_exceeded"
+	FailReasonUnknownError   = "unknown_error"
+)
+
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
