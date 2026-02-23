@@ -19,10 +19,11 @@ Interface-based AI provider wrapper with multi-turn conversation storage. Code a
 9. [Message Operations](#message-operations)
    - [AddMessage](#addmessage)
    - [ListMessages](#listmessages)
-10. [Gemini Provider](#gemini-provider)
-11. [Error Handling Guide](#error-handling-guide)
-12. [Token Usage Queries](#token-usage-queries)
-13. [Migration & Schema Management](#migration--schema-management)
+10. [Request Logging (Validator)](#request-logging-validator)
+11. [Gemini Provider](#gemini-provider)
+12. [Error Handling Guide](#error-handling-guide)
+13. [Token Usage Queries](#token-usage-queries)
+14. [Migration & Schema Management](#migration--schema-management)
 
 ---
 
@@ -79,7 +80,7 @@ ai/
 
 ## Database Schema
 
-Two tables. Sessions hold rules, messages hold the conversation.
+Three tables. Sessions hold rules, messages hold the conversation, request_logs track API usage.
 
 ```sql
 CREATE TABLE IF NOT EXISTS ai_sessions (
@@ -216,6 +217,47 @@ type Config struct {
 
 Use `ai.DefaultConfig()` for sensible defaults.
 
+### RequestLog
+
+Tracks every AI request attempt for cost analysis and debugging.
+
+```go
+type RequestLog struct {
+    ID            string    // unique request log ID
+    SessionID     string    // which session this request belongs to
+    Prompt        string    // the user prompt sent
+    Response      string    // the AI response (or partial if truncated)
+    AttemptNumber int       // which attempt (1 or 2 with auto-retry)
+    RetryCount    int       // how many retries were attempted
+    FinalStatus   string    // "success" or "failed"
+    FailReason    string    // why it failed: incomplete_json, network_error, timeout, api_error, etc
+    ErrorMessage  string    // detailed error description if failed
+    Usage         Usage     // token counts
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+}
+```
+
+### Fail Reason Constants
+
+```go
+ai.FailReasonIncompleteJSON // JSON brackets don't match, response truncated
+ai.FailReasonInvalidJSON    // JSON malformed
+ai.FailReasonNetworkError   // Connection/network failure
+ai.FailReasonTimeout        // Request exceeded time limit
+ai.FailReasonAPIError       // AI API returned error
+ai.FailReasonMaxRetries     // Failed after max retries
+ai.FailReasonUnknownError   // Other unexpected errors
+```
+
+### Status Constants
+
+```go
+ai.StatusSuccess // Request succeeded
+ai.StatusFailed  // Request failed
+ai.StatusPending // Request pending
+```
+
 ---
 
 ## Sentinel Errors
@@ -270,13 +312,15 @@ Sends a prompt to the AI provider with conversation history and returns the resp
 ```go
 type Store interface {
     CreateSchema(ctx context.Context) error
-    DropSchema(ctx context.Context) error
 
     CreateSession(ctx context.Context, rules Rules) (*Session, error)
     GetSession(ctx context.Context, sessionID string) (*Session, error)
 
     AddMessage(ctx context.Context, sessionID string, role string, content string, usage *Usage) (*Message, error)
     ListMessages(ctx context.Context, sessionID string) ([]Message, error)
+
+    AddRequestLog(ctx context.Context, log RequestLog) (*RequestLog, error)
+    UpdateRequestLog(ctx context.Context, id string, response string, status string, failReason string, errorMsg string, retryCount int, usage *Usage) error
 }
 ```
 
@@ -427,6 +471,84 @@ messages, err := store.ListMessages(ctx, session.ID)
 history, _ := store.ListMessages(ctx, session.ID)
 result, err := provider.Send(ctx, session.Rules, history, "next prompt")
 ```
+
+---
+
+## Request Logging (Validator)
+
+Automatically logs every API request with validation, auto-retry on failure, and detailed error tracking. Useful for cost analysis, debugging, and compliance.
+
+### Enable Request Logging
+
+```go
+provider := gemini.New(apiKey, modelID).WithStore(store)
+// Now all Send() calls are logged to ai_request_logs table
+```
+
+### What Gets Logged
+
+Each request creates a log entry with:
+- **Session ID** — which conversation session
+- **Prompt & Response** — the full request and response content
+- **Attempt Number & Retry Count** — how many times it was retried
+- **Final Status** — `"success"` or `"failed"`
+- **Fail Reason** — why it failed (if failed)
+- **Token Counts** — prompt, response, total, and thought tokens
+- **Timestamps** — when created and last updated
+
+### Automatic Validation & Retry
+
+The provider automatically:
+1. **Validates JSON completeness** — checks that `{` and `[` counts match `}` and `]`
+2. **Retries on validation failure** — up to 2 attempts total
+3. **Logs each attempt** — including partial responses
+4. **Classifies errors** — incomplete_json, network_error, timeout, api_error, etc
+
+Example error flow:
+- Attempt 1: API returns truncated JSON → validation fails → logged
+- Attempt 2: Same prompt sent again → complete JSON → success → logged
+- Result: 2 log entries, retry_count=1, final status=success
+
+### Query Request Logs
+
+```go
+// Get all requests for a session
+rows, err := db.Query(ctx, `
+  SELECT id, final_status, fail_reason, retry_count, total_tokens, created_at
+  FROM ai_request_logs
+  WHERE session_id = $1
+  ORDER BY created_at DESC
+`, sessionID)
+
+// Cost analysis: count successes vs failures
+rows, err := db.Query(ctx, `
+  SELECT final_status, COUNT(*) as count, SUM(total_tokens) as tokens
+  FROM ai_request_logs
+  WHERE created_at > NOW() - INTERVAL '1 day'
+  GROUP BY final_status
+`)
+
+// Find problematic requests
+rows, err := db.Query(ctx, `
+  SELECT id, fail_reason, error_message
+  FROM ai_request_logs
+  WHERE final_status = 'failed'
+  ORDER BY created_at DESC
+  LIMIT 10
+`)
+```
+
+### Error Classification
+
+| Fail Reason | Meaning | Recoverable |
+|-------------|---------|-------------|
+| `incomplete_json` | Truncated due to token limit | ✓ (retried) |
+| `invalid_json` | Malformed response | ✗ |
+| `network_error` | Connection failed | ✓ (could retry) |
+| `timeout` | Request exceeded deadline | ✓ (could retry) |
+| `api_error` | AI provider returned error | ✗ |
+| `max_retries_exceeded` | Failed after 2 attempts | ✗ |
+| `unknown_error` | Unexpected error | ? |
 
 ---
 

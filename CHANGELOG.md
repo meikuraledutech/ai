@@ -76,6 +76,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Option C: Request summarized/condensed responses
   - Token estimation approach documented
 
+#### JSON Validator with Auto-Retry
+- **JSON completion validation** via bracket matching
+  - Validates that `{` and `[` counts match `}` and `]`
+  - Detects truncated/incomplete JSON responses
+  - Works with any JSON structure
+
+- **Automatic retry logic**
+  - Retries up to 2 times on validation failure
+  - Appends retry context to conversation history
+  - Auto-classifies failure reasons for debugging
+
+- **Request logging with fail reasons**
+  - `ai_request_logs` table tracks every API request attempt
+  - Logs session_id, prompt, response, attempt_number, retry_count
+  - Records final_status (success/failed) and fail_reason
+  - Captures token usage for cost analysis
+  - Fail reasons: incomplete_json, invalid_json, network_error, timeout, api_error, max_retries_exceeded, unknown_error
+
+- **Optional cost tracking**
+  - `WithStore()` method enables opt-in request logging on provider
+  - Query logs for cost analysis and failure patterns
+  - SessionID passed via context for first-message logging
+  - Indexes on session_id and final_status for efficient querying
+
 #### Version Structure
 - **Go module versioning** with `/v1` suffix
   - Module path: `github.com/meikuraledutech/ai/v1`

@@ -65,13 +65,16 @@ See [v1/README.md](v1/README.md) for complete quick start guide.
 
 ## Key Features
 
-- Multi-turn conversations with ordered message history
-- Token usage tracking (prompt, response, total, thought)
-- Structured rules per session (system prompt, output schema, max tokens)
-- Interface-based design for extensibility
-- Gemini provider (raw HTTP, no SDK)
-- PostgreSQL backend with migration tracking
-- Sequence-based message ordering (guaranteed correct order)
+- **Multi-turn conversations** with ordered message history
+- **Token usage tracking** (prompt, response, total, thought)
+- **Structured rules** per session (system prompt, output schema, max tokens)
+- **JSON validator with auto-retry** — validates bracket matching, retries up to 2 times on failure
+- **Request logging** — logs every API request with session context, fail reasons, and token counts
+- **Interface-based design** for extensibility
+- **Gemini provider** (raw HTTP, no SDK)
+- **PostgreSQL backend** with migration tracking
+- **Sequence-based message ordering** (guaranteed correct order)
+- **Cost analysis** — queryable request logs for usage and failure tracking
 
 ## Imports Changed
 
