@@ -18,9 +18,6 @@ func main() {
 	// Load configuration from environment.
 	cfg := ai.LoadConfig()
 
-	// Override token limit to 2000 for testing validator with truncation
-	cfg.MaxTokens = 2000
-
 	// Connect to PostgreSQL.
 	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
