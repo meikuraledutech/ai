@@ -5,8 +5,9 @@ import (
 	"strconv"
 )
 
-// Config holds configuration for the AI package loaded from environment variables.
-type AppConfig struct {
+// Config holds configuration for the AI package.
+// It loads values from environment variables with sensible defaults.
+type Config struct {
 	DatabaseURL string
 	GeminiAPI   string
 	ModelID     string
@@ -14,8 +15,8 @@ type AppConfig struct {
 }
 
 // LoadConfig loads configuration from environment variables with sensible defaults.
-func LoadConfig() AppConfig {
-	cfg := AppConfig{
+func LoadConfig() Config {
+	cfg := Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		GeminiAPI:   os.Getenv("GEMINI_API"),
 		ModelID:     os.Getenv("MODEL_ID"),

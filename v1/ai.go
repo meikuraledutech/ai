@@ -41,11 +41,6 @@ type Result struct {
 	Usage   Usage  `json:"usage"`
 }
 
-// Config holds defaults for the ai package.
-type Config struct {
-	DefaultMaxTokens int
-}
-
 // MigrationRecord tracks a single applied migration.
 type MigrationRecord struct {
 	Name      string
@@ -88,9 +83,3 @@ const (
 	FailReasonUnknownError   = "unknown_error"
 )
 
-// DefaultConfig returns a Config with sensible defaults.
-func DefaultConfig() Config {
-	return Config{
-		DefaultMaxTokens: 16384,
-	}
-}
