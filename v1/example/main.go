@@ -13,6 +13,11 @@ import (
 	"github.com/meikuraledutech/ai/v1/postgres"
 )
 
+type AIResponse struct {
+	Message string `json:"message"`
+	Form    FormResponse `json:"form"`
+}
+
 type FormResponse struct {
 	Nodes []struct {
 		Ref  string `json:"ref"`
@@ -54,21 +59,33 @@ func main() {
 	}
 	fmt.Println("✓ Schema created")
 
-	// System prompt with incremental update logic
+	// System prompt with incremental update logic and message format
 	systemPrompt := `You are a smart form builder for education. Generate a form structure as a DAG (directed acyclic graph).
-Return JSON with "nodes" (questions) and "edges" (conditional paths between questions).
-Each node must have: "ref" (temp key), "data" with "question" (text), "type" (radio), and "options" (array of answer choices).
-Each edge must have: "from_node_ref", "to_node_ref", "data" with "condition" (the answer/condition that triggers this path).
+
+RESPONSE FORMAT - Always return JSON with this structure:
+{
+  "message": "Conversational explanation of what was created/changed. Be helpful and describe the form structure.",
+  "form": {
+    "nodes": [nodes array],
+    "edges": [edges array]
+  }
+}
+
+Form Structure Requirements:
+- Each node must have: "ref" (unique identifier like q1, q2), "data" with "question" (text), "type" (radio), and "options" (array of answer choices).
+- Each edge must have: "from_node_ref", "to_node_ref", "data" with "condition" (the answer/condition that triggers this path).
 
 IMPORTANT - Incremental Updates:
 - If you see an existing form in the conversation history, preserve ALL nodes and edges not mentioned in the user's request.
 - Only modify, add, or remove nodes/edges that the user explicitly requested.
 - Keep all other nodes and edges exactly as they are.
 - Maintain referential integrity: all edge references must point to existing nodes.
+- In the message, explain what changes were made.
 
 For new forms:
 - Generate at least 3 questions. Maximum 2 nested layers deep.
-- Always return the complete form structure.`
+- In the message, describe the form's purpose and structure.
+- Always return the complete form structure with message.`
 
 	// Start a session with rules.
 	session, err := store.CreateSession(ctx, ai.Rules{
@@ -101,12 +118,14 @@ For new forms:
 	store.AddMessage(ctx, session.ID, "assistant", result1.Content, &result1.Usage)
 
 	// Parse first response
-	var form1 FormResponse
-	if err := json.Unmarshal([]byte(result1.Content), &form1); err != nil {
+	var aiResp1 AIResponse
+	if err := json.Unmarshal([]byte(result1.Content), &aiResp1); err != nil {
 		fmt.Printf("❌ Failed to parse response: %v\n", err)
 		return
 	}
 
+	form1 := aiResp1.Form
+	fmt.Printf("💬 Message: %s\n", aiResp1.Message)
 	fmt.Printf("✓ Form 1: %d nodes, %d edges\n", len(form1.Nodes), len(form1.Edges))
 	if len(form1.Nodes) > 0 {
 		fmt.Printf("  - First node: %s\n", form1.Nodes[0].Data.Question)
@@ -132,12 +151,14 @@ For new forms:
 	store.AddMessage(ctx, session.ID, "assistant", result2.Content, &result2.Usage)
 
 	// Parse second response
-	var form2 FormResponse
-	if err := json.Unmarshal([]byte(result2.Content), &form2); err != nil {
+	var aiResp2 AIResponse
+	if err := json.Unmarshal([]byte(result2.Content), &aiResp2); err != nil {
 		fmt.Printf("❌ Failed to parse response: %v\n", err)
 		return
 	}
 
+	form2 := aiResp2.Form
+	fmt.Printf("💬 Message: %s\n", aiResp2.Message)
 	fmt.Printf("✓ Form 2: %d nodes, %d edges\n", len(form2.Nodes), len(form2.Edges))
 	fmt.Printf("  - First node: %s\n", form2.Nodes[0].Data.Question)
 
@@ -161,12 +182,14 @@ For new forms:
 	store.AddMessage(ctx, session.ID, "assistant", result3.Content, &result3.Usage)
 
 	// Parse third response
-	var form3 FormResponse
-	if err := json.Unmarshal([]byte(result3.Content), &form3); err != nil {
+	var aiResp3 AIResponse
+	if err := json.Unmarshal([]byte(result3.Content), &aiResp3); err != nil {
 		fmt.Printf("❌ Failed to parse response: %v\n", err)
 		return
 	}
 
+	form3 := aiResp3.Form
+	fmt.Printf("💬 Message: %s\n", aiResp3.Message)
 	fmt.Printf("✓ Form 3: %d nodes, %d edges\n", len(form3.Nodes), len(form3.Edges))
 
 	// COMPARISON
