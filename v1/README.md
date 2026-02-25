@@ -21,7 +21,7 @@ The key idea: **Provider** handles the AI call (stateless), **Store** handles pe
 ## Install
 
 ```bash
-go get github.com/meikuraledutech/ai/v1
+go get github.com/meikuraledutech/ai@v1.0.1
 ```
 
 ## Quick Start

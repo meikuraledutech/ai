@@ -7,7 +7,7 @@ Go package for **wrapping AI providers with multi-turn conversation storage**. S
 ### V1 (Current)
 
 ```bash
-go get github.com/meikuraledutech/ai/v1
+go get github.com/meikuraledutech/ai@v1.0.1
 ```
 
 **Import:**
@@ -56,7 +56,7 @@ ai/
 ### Installation
 
 ```bash
-go get github.com/meikuraledutech/ai/v1
+go get github.com/meikuraledutech/ai@v1.0.1
 ```
 
 ### Basic Usage
